@@ -1,0 +1,7 @@
+vendor
+var
+tests
+config/jwt
+phpunit.result.cache
+.env.local
+.env.test

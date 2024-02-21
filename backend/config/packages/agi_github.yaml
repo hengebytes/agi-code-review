@@ -1,0 +1,14 @@
+framework:
+    messenger:
+        routing:
+            App\Github\Message\Async\*: async
+
+doctrine:
+    orm:
+        mappings:
+            Github:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Github/Entity'
+                prefix: 'App\Github\Entity'
+                alias: App

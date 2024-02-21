@@ -1,0 +1,5 @@
+github_controllers:
+    resource:
+        path: ../../src/Github/Controller/
+        namespace: App\Github\Controller
+    type: attribute

@@ -1,0 +1,157 @@
+version: '3.8'
+
+name: agicr
+
+networks:
+    agi-cr-net:
+        driver: bridge
+
+x-global: &common
+    logging:
+        driver: "json-file"
+        options:
+            max-size: 50M
+    networks:
+        - agi-cr-net
+
+services:
+    localai:
+        <<: *common
+        image: "localai/localai:v2.8.2-cublas-cuda12-ffmpeg"
+        env_file:
+            - .env.localai
+        volumes:
+            - ./local-models:/models:cached
+            - ./data/images/:/tmp/generated/images/
+            - ./data/huggingface/:/usr/local/huggingface/
+        command: [ "gpt-4" ]
+        ports:
+            - 9088:80
+        ulimits:
+            memlock: -1
+        deploy:
+            resources:
+                reservations:
+                    devices:
+                        -   driver: nvidia
+                            count: all
+                            capabilities: [ gpu ]
+
+    redis:
+        <<: *common
+        image: "redis:7-alpine"
+        volumes:
+            - ./data/redis:/data
+
+    php: &php
+        <<: *common
+        build:
+            context: ../.
+            dockerfile: ./docker/images/php/Dockerfile-local
+        volumes:
+            - ../backend:/app
+            - ./images/php/php.ini:/usr/local/etc/php/conf.d/custom-php.ini
+            - ./images/php/docker-php-ext-xdebug-add.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug2.ini
+            - ./images/php/docker-php-ext-xdebug-ip.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug3.ini
+            - $SSH_AUTH_SOCK:/ssh-agent # Forward host machine SSH key to docker
+            - ~/.composer:/home/commanduser/.composer # Forward composer cache and credentials
+        environment: &php-env
+            PHP_IDE_CONFIG: serverName=app.local
+            SSH_AUTH_SOCK: /ssh-agent
+            COMPOSER_MEMORY_LIMIT: 8G
+            DATABASE_URL: mysql://root:app@mysql:3306/app?serverVersion=8.3.0
+            REDIS_DSN: redis://redis:6379
+            PROJECT_TASKS_LIMIT: 10000
+            GLOBAL_TASKS_LIMIT: 100000
+        ports:
+            - 9089:80
+        depends_on:
+            - mysql
+            - redis
+
+    cron:
+        <<: *php
+        user: root
+        ports: []
+        environment:
+            <<: *php-env
+        command: ["-f"]
+        entrypoint: "/usr/sbin/crond"
+
+    probot:
+        <<: *common
+        build:
+            context: ../probot
+            dockerfile: Dockerfile
+        volumes:
+            - ../probot:/usr/src/app
+            - ./data/cache/hub:/file-cache-storage
+        env_file:
+            - ../probot/.env
+        depends_on:
+            - php
+
+    mysql:
+        <<: *common
+        image: "mysql:8"
+        environment:
+            MYSQL_ROOT_PASSWORD: app
+            MYSQL_DATABASE: app
+            MYSQL_USER: app
+            MYSQL_PASSWORD: app
+        volumes:
+            - ./data/mysql:/var/lib/mysql
+
+    phpmyadmin:
+        <<: *common
+        image: "phpmyadmin/phpmyadmin"
+        ports:
+            - 9081:80
+        environment:
+            MYSQL_ROOT_PASSWORD: app
+            MYSQL_DATABASE: app
+            MYSQL_USER: app
+            MYSQL_PASSWORD: app
+            PMA_HOST: mysql
+            UPLOAD_LIMIT: 4G
+        depends_on:
+            - mysql
+
+#    nextjs:
+#        <<: *common
+#        build:
+#            context: ../nextjs/
+#            dockerfile: ../docker/images/nextjs/Dockerfile
+#        ports:
+#            - 9080:3000
+#        user: "1000:1000"
+#        volumes:
+#            - ../nextjs:/app
+#        command: [ "npm", "run", "dev" ]
+#        environment:
+#            - NODE_ENV=development
+
+#
+#    lcpp:
+#        <<: *common
+#        image: "ghcr.io/ggerganov/llama.cpp:server-cuda"
+#        env_file:
+#            - .env.localai
+#        volumes:
+#            - ./data/models:/models:cached
+#            - ./data/images/:/tmp/generated/images/
+#            - ./data/huggingface/:/usr/local/huggingface/
+#        command: [ "-m", "/models/codellama-70b-instruct.Q4_K_M.gguf", "--port", "8000", "--host", "0.0.0.0", "-n", "16384", "-c", "16384", "--n-gpu-layers", "30", "--mlock" ]
+#        ports:
+#            - 9099:8000
+#        cap_add:
+#            - SYS_RESOURCE
+#        ulimits:
+#            memlock: -1
+#        deploy:
+#            resources:
+#                reservations:
+#                    devices:
+#                        -   driver: nvidia
+#                            count: all
+#                            capabilities: [ gpu ]

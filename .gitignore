@@ -1,0 +1,8 @@
+.idea
+nextjs
+probot-dev
+docker/data
+docker/local-models/*.gguf
+docker/images/php/docker-php-ext-xdebug-ip.ini
+docker/local-models/*
+!docker/local-models/example/*

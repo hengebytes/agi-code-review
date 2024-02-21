@@ -1,0 +1,73 @@
+version: '3'
+
+# Remote Procedures Calling (docs: https://roadrunner.dev/docs/beep-beep-rpc)
+# Is used for connecting to RoadRunner server from your PHP workers.
+rpc:
+    # TCP address:port for listening.
+    #
+    # Default: "tcp://127.0.0.1:6001"
+    listen: tcp://127.0.0.1:6001
+server:
+    command: "php public/index.php"
+    env:
+        - APP_RUNTIME: App\Runtime\Runtime
+#        - APP_ENV: prod
+
+# http service configuration.
+http:
+    # http host to listen.
+    address:    0.0.0.0:80
+
+    # Maximal incoming request size in megabytes. Zero means no limit.
+    #
+    # Default: 0
+    max_request_size: 20
+    # Middlewares for the http plugin, order is important. Allowed values is: "headers", "gzip", "static", "websockets", "sendfile",  [SINCE 2.6] -> "new_relic", [SINCE 2.6] -> "http_metrics", [SINCE 2.7] -> "cache"
+    #
+    # Default value: []
+    middleware: [ "headers" ]
+    # file upload configuration.
+    uploads:
+        # list of file extensions which are forbidden for uploading.
+        forbid: [".php", ".exe", ".bat"]
+
+    headers:
+        cors:
+            allowed_origin: "http://localhost:3000"
+            allowed_headers: "content-type,cookie,authorization,apiauthorization"
+            allowed_methods: "GET,POST,PUT,DELETE"
+            allow_credentials: true
+            exposed_headers: "Cache-Control,Content-Language,Content-Type,Expires,Last-Modified,Pragma"
+            max_age: 600
+    pool:
+        # How many worker processes will be started. Zero (or nothing) means the number of logical CPUs.
+        num_workers: 1
+        # Maximal count of worker executions. Zero (or nothing) means no limit.
+        max_jobs: 5
+        # Timeout for worker allocation. Zero means no limit.
+        allocate_timeout: 60s
+        # Timeout for worker destroying before process killing. Zero means no limit.
+        destroy_timeout: 60s
+        supervisor:
+            # How often to check the state of the workers.
+            watch_tick: 1s
+            # Maximum time worker is allowed to live (soft limit). Zero means no limit.
+            ttl: 1800s
+            # How long worker can spend in IDLE mode after first using (soft limit). Zero means no limit.
+            idle_ttl: 5s
+            # Maximal worker memory usage in megabytes (soft limit). Zero means no limit.
+            max_worker_memory: 128
+            # Maximal job lifetime (hard limit). Zero means no limit.
+            exec_ttl: 300s
+logs:
+#    mode: development
+#    level: debug
+    mode: production
+    level: error
+    encoding: json
+    file_logger_options:
+        log_output: "var/log/rr.log"
+        max_size: 10
+        max_age: 24
+        max_backups: 10
+        compress: true

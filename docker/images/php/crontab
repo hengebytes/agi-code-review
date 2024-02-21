@@ -1,0 +1,8 @@
+# each 5 minutes - dispatch queue events to 5 minutes
+*/5 * * * * cd /app && /usr/local/bin/php bin/console messenger:consume async --time-limit=300 2>&1 >> /app/var/log/cron.log
+
+# each 30 minutes - check if no new PRs opened
+*/30 * * * * cd /app && /usr/local/bin/php bin/console agi:github:check-new-requests 2>&1 >> /app/var/log/cron.log
+
+# each 5 minutes - process tasks
+*/5 * * * * cd /app && /usr/local/bin/php bin/console agi:tasks:process 2>&1 >> /app/var/log/cron.log

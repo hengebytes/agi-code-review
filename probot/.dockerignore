@@ -1,0 +1,12 @@
+node_modules
+.git
+README.md
+LICENSE
+.vscode
+.idea
+npm-debug.log
+.env
+.editorconfig
+**/*.pem
+Dockerfile
+lib

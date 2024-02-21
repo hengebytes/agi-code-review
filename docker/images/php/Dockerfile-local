@@ -1,0 +1,71 @@
+FROM ghcr.io/roadrunner-server/roadrunner:2023.3 AS roadrunner
+
+FROM php:8.3-alpine
+
+MAINTAINER Ivan Ternovtsiy <it@hengebytes.com>
+
+ENV PHPIZE_DEPS $PHPIZE_DEPS icu-dev libxslt-dev libzip-dev \
+    libpng-dev libjpeg-turbo-dev freetype-dev libwebp-dev libavif-dev imagemagick-dev
+# intl - icu-dev
+# xsl - libxslt-dev
+# zip - libzip-dev
+# gd - freetype-dev libpng-dev libjpeg-turbo-dev freetype-dev libwebp-dev libavif-dev
+RUN apk add --update linux-headers
+# custom compile additional modules
+RUN apk add --no-cache --virtual .phpize-deps $PHPIZE_DEPS \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-avif --with-webp \
+    && docker-php-ext-install pcntl intl xsl exif pdo_mysql gd opcache zip bcmath sockets \
+    && wget -O /usr/local/bin/pickle https://github.com/FriendsOfPHP/pickle/releases/latest/download/pickle.phar \
+    && chmod +x /usr/local/bin/pickle \
+    && pickle install -n igbinary && docker-php-ext-enable igbinary \
+    && echo "--enable-redis-igbinary" > redis-options.txt \
+    && pickle install --with-configure-options redis-options.txt redis && docker-php-ext-enable redis \
+    && pickle install -n imagick && docker-php-ext-enable imagick \
+    && rm -rf redis-options.txt \
+    && rm -rf /usr/local/bin/pickle \
+    && apk del -f .phpize-deps
+
+# install shared libs required for custom modulesy
+RUN apk add --no-cache icu libxslt libpng libjpeg-turbo freetype libwebp libavif libzip imagemagick libgomp
+# intl - icu
+# xsl - libxslt
+# zip - libzip zlib
+# gd - freetype libpng libjpeg-turbo freetype libwebp libavif
+
+# ----- PROD above, DEV below  -----
+RUN apk add git openssh-client
+
+RUN apk add --no-cache --virtual .phpize-deps $PHPIZE_DEPS \
+    && wget -O /usr/local/bin/pickle https://github.com/FriendsOfPHP/pickle/releases/latest/download/pickle.phar \
+    && chmod +x /usr/local/bin/pickle \
+    && pickle install -n xdebug && docker-php-ext-enable xdebug \
+    && rm -rf /usr/local/bin/pickle \
+    && apk del -f .phpize-deps
+
+RUN curl -sS https://getcomposer.org/installer | php \
+    && mv composer.phar /usr/local/bin/composer \
+    && mkdir -m 777 /.composer \
+    && addgroup -g 1000 -S commanduser \
+	&& adduser -u 1000 -D -S -G commanduser commanduser \
+	&& mkdir /home/commanduser/.ssh \
+	&& echo -e "Host *\n    StrictHostKeyChecking no" > /home/commanduser/.ssh/config \
+	&& chmod 400 /home/commanduser/.ssh/config \
+	&& chown -R 1000:1000 /home/commanduser \
+    && mkdir -p -m 0600 /root/.ssh && ssh-keyscan gitlab.com >> /root/.ssh/known_hosts
+
+COPY --from=roadrunner /usr/bin/rr /usr/local/bin/rr
+
+WORKDIR /app
+
+# local only, in stage for prod
+#COPY backend/composer.json backend/composer.lock backend/bin /app/
+#COPY backend /app/
+#
+#ENV COMPOSER_ALLOW_SUPERUSER=1
+#
+#RUN --mount=type=ssh set -xe && composer install --no-interaction --no-progress --ansi --no-scripts
+
+USER www-data
+EXPOSE 8080
+
+CMD rr serve -c .rr.dev.yaml
