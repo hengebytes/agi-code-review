@@ -57,6 +57,10 @@ COPY --from=roadrunner /usr/bin/rr /usr/local/bin/rr
 
 WORKDIR /app
 
+# + for using this image as the cron daemon
+COPY docker/images/php/crontab /etc/crontabs/www-data
+# - for using this image as the cron daemon
+
 # local only, in stage for prod
 #COPY backend/composer.json backend/composer.lock backend/bin /app/
 #COPY backend /app/

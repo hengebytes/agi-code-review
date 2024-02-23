@@ -86,11 +86,11 @@ readonly class GithubPRService
         [$owner, $repo] = explode('/', $connection->getConfigValue('repository'));
         $task = new Task();
         $task->name = "{$repo} #{$githubPRId}: {$prDetails->title}";
-        $task->description = $prDetails->body . "\nCommits:\n {$commitNames}";
+        $task->description = trim($prDetails->body . "\nCommits:\n {$commitNames}");
         $task->status = TaskStatus::NEW;
         $task->source = 'github-pr';
         $task->externalId = $githubPRId;
-        $task->externalRefs[] = "https://github.com/{$repo}/pull/{$githubPRId}";
+        $task->externalRefs[] = "https://github.com/{$owner}/{$repo}/pull/{$githubPRId}";
         $task->project = $connection->project;
 
         $this->entityManager->persist($task);

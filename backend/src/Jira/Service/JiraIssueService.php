@@ -42,7 +42,7 @@ class JiraIssueService
         return new JiraIssue(
             $jiraId,
             $issue->fields->summary,
-            $issue->fields->description,
+            $issue->fields->description ?: '',
             $comments,
         );
     }

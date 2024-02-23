@@ -33,4 +33,12 @@ class TaskResult
     {
         $this->createdAt = new \DateTimeImmutable();
     }
+
+    public static function fromOutput(string $output): self
+    {
+        $result = new self();
+        $result->output = $output;
+
+        return $result;
+    }
 }

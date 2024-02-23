@@ -133,6 +133,10 @@ abstract class AbstractContentManagementCommand extends Command
             $io->comment($fieldDefinition['description']);
         }
 
+        if (isset($fieldDefinition['type']) && $fieldDefinition['type'] === AgentFieldType::BOOL) {
+            return $io->confirm($fieldLabel);
+        }
+
         $q = new Question($fieldLabel);
         if (!empty($fieldDefinition['required'])) {
             $q->setValidator(function ($value) use ($fieldLabel) {
@@ -147,6 +151,16 @@ abstract class AbstractContentManagementCommand extends Command
             $q->setMultiline(true);
         }
 
-        return $io->askQuestion($q);
+        $answer = $io->askQuestion($q);
+
+        if (
+            isset($fieldDefinition['type'])
+            && $fieldDefinition['type'] === AgentFieldType::INT
+            && is_numeric($answer)
+        ) {
+            return (int)$answer;
+        }
+
+        return $answer;
     }
 }

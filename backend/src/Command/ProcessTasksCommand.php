@@ -31,6 +31,7 @@ class ProcessTasksCommand extends Command
         $tasks = $taskRepo->findBy(['status' => TaskStatus::READY_TO_PROCESS]);
 
         foreach ($tasks as $task) {
+            $output->writeln($task->project->name . ': processing ' . $task->name . ' ' . $task->id);
             $this->taskProcessorService->processTask($task);
         }
 
