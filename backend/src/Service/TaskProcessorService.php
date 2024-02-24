@@ -56,7 +56,7 @@ readonly class TaskProcessorService
             }
 
             $task->status = TaskStatus::COMPLETED;
-        } catch (\Exception $e) {
+        } catch (\Exception|\Error $e) {
             $result = new TaskResult();
             $result->task = $task;
             $result->input = '';

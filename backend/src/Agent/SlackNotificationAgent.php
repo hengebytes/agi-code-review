@@ -53,7 +53,7 @@ class SlackNotificationAgent extends AbstractAgent
             'messageText' => [
                 'label' => 'Message text',
                 'description' => 'Variables: {projectName}, {taskName}, {taskId}, {references}. ' .
-                    'Default: `{projectName}: Task {taskName} ({taskStatus}) - {taskStatus}.\n{references}`',
+                    'Default: `{projectName}: Task {taskName} ({taskId}).\n{references}`',
                 'type' => AgentFieldType::TEXT,
             ],
         ];
