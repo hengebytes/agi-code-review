@@ -49,6 +49,8 @@ readonly class TaskProcessorService
                 $result = $taskAgent->processTask($task, $connection, $messages);
                 if ($result) {
                     $result->task = $task;
+                    $result->agent = $agentConfig;
+                    $result->agentName = $agentConfig->name;
                     $this->entityManager->persist($result);
                 }
             }
@@ -58,6 +60,10 @@ readonly class TaskProcessorService
             $result = new TaskResult();
             $result->task = $task;
             $result->input = '';
+            if (isset($agentConfig)) {
+                $result->agent = $agentConfig;
+                $result->agentName = $agentConfig->name;
+            }
             $result->output = $e->getMessage();
             $this->entityManager->persist($result);
             $task->results->add($result);

@@ -76,10 +76,12 @@ class GithubCodeReviewerAgent extends AbstractAgent
 
         $fileComments = [];
         $realTokensCount = $completion->usage->totalTokens;
+        $toolsCalled = false;
         while ($completion->choices[0]->finishReason === 'tool_calls') {
             if ($allowToolCallsCount-- <= 0) {
                 break;
             }
+            $toolsCalled = true;
             sleep(1); // avoid rate limit issues with OpenAI and GitHub
 
             foreach ($completion->choices[0]->message->toolCalls as $toolCall) {
@@ -120,6 +122,13 @@ class GithubCodeReviewerAgent extends AbstractAgent
         }
 
         if (!$completion->choices[0]->message->content) {
+            if ($toolsCalled) {
+                $reqMessages[] = new AgentMessage(
+                    'Max tool calls reached. ' .
+                    'Provide a remaining brief summary without repeating feedback already provided by tools.',
+                    AgentMessageRole::USER
+                );
+            }
             $completion = $this->completionService->getCompletion($llmAccess, $reqMessages);
             $realTokensCount += $completion->usage->totalTokens;
         }

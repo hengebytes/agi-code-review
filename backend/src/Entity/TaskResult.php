@@ -23,6 +23,12 @@ class TaskResult
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     public ?string $output = null;
 
+    #[ORM\Column(type: Types::STRING, nullable: true)]
+    public ?string $agentName = null;
+
+    #[ORM\ManyToOne]
+    public AgentConfig|null $agent = null;
+
     #[ORM\Column(type: Types::JSON, nullable: true)]
     public ?array $extraData = null;
 
@@ -32,5 +38,13 @@ class TaskResult
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
+    }
+
+    public static function fromOutput(string $output): self
+    {
+        $result = new self();
+        $result->output = $output;
+
+        return $result;
     }
 }

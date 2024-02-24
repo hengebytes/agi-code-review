@@ -33,7 +33,7 @@ class JiraIssueService
         $issue = $this->getJiraIssueClient($connection)->get($jiraId, [
             'fields' => ['description', 'summary'],
         ]);
-        if (!$issue) {
+        if (empty($issue->fields)) {
             return null;
         }
         $comments = $this->getJiraIssueClient($connection)->getComments($jiraId)->comments;
@@ -42,7 +42,7 @@ class JiraIssueService
         return new JiraIssue(
             $jiraId,
             $issue->fields->summary,
-            $issue->fields->description,
+            $issue->fields->description ?: '',
             $comments,
         );
     }

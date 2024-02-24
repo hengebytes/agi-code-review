@@ -46,10 +46,10 @@ class LLMCacheService
         }
     }
 
-    public function saveOAIResponse(array $messages, CreateResponse $response, string $variationKey = '')
+    public function saveOAIResponse(array $messages, CreateResponse $response, string $variationKey = ''): void
     {
         try {
-            $inputHash = md5(json_encode($messages, JSON_THROW_ON_ERROR));
+            $inputHash = md5(json_encode($messages, JSON_THROW_ON_ERROR) . $variationKey);
         } catch (\JsonException) {
             return;
         }
@@ -64,6 +64,4 @@ class LLMCacheService
         $this->entityManager->persist($cache);
         $this->entityManager->flush();
     }
-
-
 }

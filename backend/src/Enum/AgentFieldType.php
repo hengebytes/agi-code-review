@@ -7,4 +7,5 @@ enum AgentFieldType: string
     case STRING = 'string';
     case TEXT = 'text';
     case INT = 'int';
+    case BOOL = 'bool';
 }

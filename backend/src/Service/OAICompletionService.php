@@ -59,6 +59,7 @@ readonly class OAICompletionService
         }
 
         $response = $client->chat()->create($chatRequestParams);
+        $response = $this->parseMultiToolResponse($response);
 
         try {
             $this->cacheService->saveOAIResponse($messages, $response, $variationKey);
@@ -99,5 +100,53 @@ readonly class OAICompletionService
         }
 
         return $tokens;
+    }
+
+    private function parseMultiToolResponse(CreateResponse $response): CreateResponse
+    {
+        // sometimes the response includes a multi-tool response in message, which we need to parse and execute
+        $prefix = "```multi_tool_use.parallel```\n```json\n";
+        if (empty($response->choices[0]->message->content) || !str_starts_with($response->choices[0]->message->content, $prefix)) {
+            return $response;
+        }
+        $responseData = $response->toArray();
+        $stringResponse = trim(
+            str_replace($prefix, '', $responseData['choices'][0]['message']['content']),
+            "` \n\t"
+        );
+
+        try {
+            $multitoolData = json_decode($stringResponse, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return $response;
+        }
+        if (empty($multitoolData['tool_uses']) || !is_array($multitoolData['tool_uses'])) {
+            return $response;
+        }
+        $toolCalls = [];
+        foreach ($multitoolData['tool_uses'] as $k => $toolUse) {
+            if (!isset($toolUse['recipient_name'], $toolUse['parameters'])) {
+                continue;
+            }
+            try {
+                // validate parameters json
+                json_decode($toolUse['parameters'], flags: JSON_THROW_ON_ERROR);
+            } catch (\JsonException) {
+                continue;
+            }
+            $toolCalls[] = [
+                'id' => 'call_multitool' . $k,
+                'type' => 'function',
+                'function' => [
+                    'name' => str_replace('functions.', '', $toolUse['recipient_name']),
+                    'arguments' => $toolUse['parameters'],
+                ],
+            ];
+        }
+        $responseData['choices'][0]['message']['content'] = '';
+        $responseData['choices'][0]['message']['tool_calls'] = $toolCalls;
+        $responseData['choices'][0]['finish_reason'] = 'tool_calls';
+
+        return CreateResponse::from($responseData, $response->meta());
     }
 }

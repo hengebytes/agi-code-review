@@ -24,13 +24,14 @@ readonly class TaskCompletedMessageHandler
             $this->removeGlobalOldTasks();
         }
 
+        /** @var Task $task */
         $task = $this->entityManager->getRepository(Task::class)->find($message->taskId);
         if (!$task) {
             return;
         }
-        $projectTasksCount = $this->entityManager->getRepository(Task::class)->count(['project' => $task->projectId]);
+        $projectTasksCount = $this->entityManager->getRepository(Task::class)->count(['project' => $task->project->id]);
         if ($projectTasksCount > $this->projectTasksLimit) {
-            $this->removeProjectOldTasks($task->projectId);
+            $this->removeProjectOldTasks($task->project->id);
         }
     }
 
