@@ -75,11 +75,11 @@ services:
         ports: []
         environment:
             <<: *php-env
+        command: ["-f", "-d", "3", "-l", "3"]
+        entrypoint: "/usr/sbin/crond"
+#        entrypoint: "sh"
+#        command: ["-c exit"]
 #        command: ["-f"]
-#        command: ["-f", "-d", "3", "-l", "3"]
-#        entrypoint: "/usr/sbin/crond"
-        command: ["-c exit"]
-        entrypoint: "sh"
 
     probot:
         <<: *common

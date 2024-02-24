@@ -124,7 +124,8 @@ class GithubCodeReviewerAgent extends AbstractAgent
         if (!$completion->choices[0]->message->content) {
             if ($toolsCalled) {
                 $reqMessages[] = new AgentMessage(
-                    'Max tool calls reached. Skip further tool calls and provide remaining brief summary',
+                    'Max tool calls reached. ' .
+                    'Provide a remaining brief summary without repeating feedback already provided by tools.',
                     AgentMessageRole::USER
                 );
             }

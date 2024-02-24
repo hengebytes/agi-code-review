@@ -106,7 +106,7 @@ readonly class OAICompletionService
     {
         // sometimes the response includes a multi-tool response in message, which we need to parse and execute
         $prefix = "```multi_tool_use.parallel```\n```json\n";
-        if (!str_starts_with($prefix, $response->choices[0]->message->content)) {
+        if (empty($response->choices[0]->message->content) || !str_starts_with($response->choices[0]->message->content, $prefix)) {
             return $response;
         }
         $responseData = $response->toArray();
