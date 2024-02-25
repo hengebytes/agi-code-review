@@ -32,7 +32,7 @@ class GithubContextAgent extends AbstractAgent
             );
         }
 
-        $pr = $this->entityManager->getRepository(GithubPullRequest::class)->find($task->id);
+        $pr = $this->entityManager->getRepository(GithubPullRequest::class)->findOneBy(['task' => $task]);
         if (!$pr || !$pr->diffFiles) {
             return null;
         }

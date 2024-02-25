@@ -183,6 +183,7 @@ readonly class GithubPRService
         ProjectAgentConnection $connection, Task $task,
         string $comment,
         array $fileComments = [],
+        string $reviewCommentPrefix = ''
     ): void {
         $pr = $this->entityManager->getRepository(GithubPullRequest::class)->findOneBy(['task' => $task]);
         if (!$pr) {
@@ -190,13 +191,20 @@ readonly class GithubPRService
         }
         $client = $this->getGithubClient($connection);
 
+        if ($reviewCommentPrefix) {
+            $reviewCommentPrefix = trim($reviewCommentPrefix) . "\n";
+        }
+
         $params = [
-            'body' => $comment,
+            'body' => $reviewCommentPrefix . $comment,
             'event' => 'COMMENT',
             //'event' => $fileComments ? 'REQUEST_CHANGES' : 'COMMENT', // request changes fails on own PRs
         ];
-        if ($fileComments) {
-            $params['comments'] = $fileComments;
+        if ($fileComments && $reviewCommentPrefix) {
+            $params['comments'] = array_map(static fn($fileComment) => [
+                ...$fileComment,
+                'body' => $reviewCommentPrefix . $fileComment['body'],
+            ], $fileComments);
         }
 
         $client->pullRequest()->reviews()->create($pr->repoOwner, $pr->repoName, $pr->githubId, $params);

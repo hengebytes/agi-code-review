@@ -137,13 +137,14 @@ class GithubCodeReviewerAgent extends AbstractAgent
         $summaryComment = $completion->choices[0]->message->content;
         $this->githubPRService->submitPRReview(
             $connection, $task,
-            $summaryComment ? $reviewCommentPrefix . $summaryComment : '',
-            $fileComments
+            $summaryComment,
+            $fileComments,
+            $reviewCommentPrefix
         );
 
         $taskResult = new TaskResult();
         $taskResult->input = implode("\n", array_map(static fn($m) => $m->content, $reqMessages));
-        $taskResult->output = $reviewCommentPrefix . "\n"
+        $taskResult->output = $reviewCommentPrefix . "\n" . $summaryComment . "\n"
             . implode("\n", array_map(static fn($m) => json_encode($m), $fileComments));
         $taskResult->extraData = [
             'inputTokens' => $this->completionService->countTextsTokens([$taskResult->input]),
