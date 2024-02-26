@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Github\Command;
+namespace App\Gitlab\Command;
 
 use App\Entity\Project;
-use App\Github\Entity\GithubPullRequest;
-use App\Github\Service\GithubPRService;
+use App\Gitlab\Entity\GitlabMergeRequest;
+use App\Gitlab\Service\GitlabMRService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -13,14 +13,14 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
-    name: 'agi:github:check-new-requests',
-    description: 'Create tasks by new pull requests in all projects'
+    name: 'agi:gitlab:check-new-requests',
+    description: 'Create tasks by new merge requests in all projects'
 )]
-class ProcessNewPullRequestsCommand extends Command
+class ProcessNewMergeRequestsCommand extends Command
 {
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
-        private readonly GithubPRService $githubPRService,
+        private readonly GitlabMRService $gitlabMRService,
     ) {
         parent::__construct();
     }
@@ -28,12 +28,12 @@ class ProcessNewPullRequestsCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $io->title('Task creation by pull request');
+        $io->title('Task creation by merge request');
 
         /** @var Project[] $allProjects */
         $allProjects = $this->entityManager->getRepository(Project::class)->findAll();
         foreach ($allProjects as $project) {
-            $io->info('Processing project: ' . $project->name);
+            $io->section($project->name);
             $this->processProject($io, $project);
         }
 
@@ -44,37 +44,37 @@ class ProcessNewPullRequestsCommand extends Command
     {
         $connection = null;
         foreach ($project->agents as $conn) {
-            if ($conn->agent && $conn->agent->type === 'GithubContextAgent') {
+            if ($conn->agent && $conn->agent->type === 'GitlabContextAgent') {
                 $connection = $conn;
                 break;
             }
         }
         if (!$connection) {
-            $io->info('No Github agent connection found for project: ' . $project->name);
+            $io->info('No Gitlab agent connection found for project: ' . $project->name);
 
             return;
         }
 
-        $PRs = $this->githubPRService->getProjectPullRequestIds($project);
-        /** @var GithubPullRequest[] $existingPRs */
-        $existingPRs = $this->entityManager->getRepository(GithubPullRequest::class)->findBy([
-            'githubId' => $PRs,
+        $MRs = $this->gitlabMRService->getProjectMergeRequestIds($project);
+        /** @var GitlabMergeRequest[] $existingMRs */
+        $existingMRs = $this->entityManager->getRepository(GitlabMergeRequest::class)->findBy([
+            'gitlabId' => $MRs,
         ]);
-        foreach ($PRs as $PRId) {
-            foreach ($existingPRs as $existingPR) {
-                if ((int)$existingPR->githubId === $PRId && $existingPR->task->project->id === $project->id) {
-                    $io->info('PR exists: ' . $PRId);
+        foreach ($MRs as $MRId) {
+            foreach ($existingMRs as $existingMR) {
+                if ((int)$existingMR->gitlabId === $MRId && $existingMR->task->project->id === $project->id) {
+                    $io->info('MR exists: ' . $MRId);
                     continue 2;
                 }
             }
-            $io->info('Creating task for PR: ' . $PRId);
+            $io->info('Creating task for MR: ' . $MRId);
 
             try {
-                $task = $this->githubPRService->createConnectionPRTask($connection, $PRId);
+                $task = $this->gitlabMRService->createConnectionMRTask($connection, $MRId);
                 if ($task) {
-                    $io->info('Task created for PR: ' . $PRId);
+                    $io->success('Task created for MR: ' . $MRId);
                 } else {
-                    $io->warning('Task not created for PR: ' . $PRId);
+                    $io->warning('Task not created for MR: ' . $MRId);
                 }
             } catch (\Exception $e) {
                 $io->error($e->getMessage());
