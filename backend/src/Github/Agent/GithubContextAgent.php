@@ -56,7 +56,7 @@ class GithubContextAgent extends AbstractAgent
             $text .= ($file['status'] ?? '') . ' "' . $file['filename'] . '"' . PHP_EOL;
             if ($file['patch']) {
                 // AI complains too much about this note in gihub diff
-                $patch = str_replace("\n\\ No newline at end of file\n```", "\n```", $file['patch']);
+                $patch = str_replace("\ No newline at end of file\n```", "\n```", $file['patch']);
 
                 $text .= '```' . PHP_EOL . $patch . PHP_EOL . '```' . PHP_EOL;
             }
