@@ -33,7 +33,7 @@ class ProcessNewPullRequestsCommand extends Command
         /** @var Project[] $allProjects */
         $allProjects = $this->entityManager->getRepository(Project::class)->findAll();
         foreach ($allProjects as $project) {
-            $io->info('Processing project: ' . $project->name);
+            $io->section($project->name);
             $this->processProject($io, $project);
         }
 

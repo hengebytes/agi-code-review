@@ -201,13 +201,51 @@ readonly class GithubPRService
             //'event' => $fileComments ? 'REQUEST_CHANGES' : 'COMMENT', // request changes fails on own PRs
         ];
         if ($fileComments && $reviewCommentPrefix) {
-            $params['comments'] = array_map(static fn($fileComment) => [
-                ...$fileComment,
-                'body' => $reviewCommentPrefix . $fileComment['body'],
-            ], $fileComments);
+            $params['comments'] = array_map(static function ($fileComment) use ($reviewCommentPrefix) {
+                if (isset($fileComment['start_line'])) {
+                    if (!isset($fileComment['line'])) {
+                        $fileComment['line'] = $fileComment['start_line'];
+                        unset($fileComment['start_line']);
+                    } elseif ($fileComment['line'] === $fileComment['start_line']) {
+                        unset($fileComment['start_line']);
+                    } elseif ($fileComment['line'] < $fileComment['start_line']) {
+                        $line = $fileComment['line'];
+                        $fileComment['line'] = $fileComment['start_line'];
+                        $fileComment['start_line'] = $line;
+                    }
+                }
+
+                return [
+                    ...$fileComment,
+                    'body' => $reviewCommentPrefix . $fileComment['body'],
+                ];
+            }, $fileComments);
         }
 
-        $client->pullRequest()->reviews()->create($pr->repoOwner, $pr->repoName, $pr->githubId, $params);
+        $reviews = $client->pullRequest()->reviews();
+        try {
+            $reviews->create($pr->repoOwner, $pr->repoName, $pr->githubId, $params);
+        } catch (\Exception $e) {
+            if (str_contains($e->getMessage(), 'Validation Failed')) {
+                if (!empty($params['comments'])) {
+                    $comment .= "Per File comments\n\n";
+                    foreach ($params['comments'] as $fileComment) {
+                        $comment .= "\n"
+                            . 'File: ' . $fileComment['path']
+                            . ' (' . (isset($fileComment['start_line']) ? $fileComment['start_line'] . ':' : '')
+                            . ($fileComment['line'] ?? '-') . ")\n"
+                            . $fileComment['body'];
+                    }
+                }
+
+                $reviews->create($pr->repoOwner, $pr->repoName, $pr->githubId, [
+                    'body' => $reviewCommentPrefix . $comment,
+                    'event' => 'COMMENT',
+                ]);
+            } else {
+                throw $e;
+            }
+        }
     }
 
     public function getFileContent(ProjectAgentConnection $connection, Task $task, string $pathToFile): string
