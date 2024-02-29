@@ -17,13 +17,14 @@ class JiraIssueService
      */
     public function detectJiraIssueIds(string $text, array $allowedProjects): array
     {
-        $regEx = '/(' . implode('|', $allowedProjects) . '[- ]\\d+)/i';
+        $regEx = '/((' . implode('|', $allowedProjects) . ')[- ]\\d+)/i';
         preg_match_all($regEx, strtoupper($text), $matches);
         $matches = $matches[0] ?? null;
         if (!$matches || !count($matches)) {
             return [];
         }
         $matches = array_map(static fn($match) => str_replace(' ', '-', $match), $matches);
+        $matches = array_filter($matches, static fn($match) => str_contains($match, '-'));
 
         return array_unique($matches);
     }
