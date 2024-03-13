@@ -37,6 +37,32 @@ class GithubContextAgent extends AbstractAgent
             return null;
         }
 
+        if ($pr->reviews) {
+            $previousReviewsText = '';
+            foreach ($pr->reviews as $review) {
+                if (!empty($review['body'])) {
+                    $previousReviewsText .= $review['body'] . PHP_EOL;
+                }
+                if (!empty($review['comments'])) {
+                    $previousReviewsText .= 'Code blocks comments: ' . PHP_EOL;
+                    foreach ($review['comments'] as $comment) {
+                        $previousReviewsText .= $comment['path']
+                            . '('
+                            . (!empty($comment['startLine']) ? 'From line ' . $comment['startLine'] . ' to ' : '')
+                            . 'line ' . $comment['line']
+                            . '):' . PHP_EOL
+                            . $comment['body'] . PHP_EOL;
+                    }
+                }
+            }
+            if (trim($previousReviewsText)) {
+                $messages[] = new AgentMessage(
+                    'Previously provided reviews: ' . PHP_EOL . trim($previousReviewsText),
+                    AgentMessageRole::USER,
+                );
+            }
+        }
+
         $messages[] = new AgentMessage(
             'Pull request code changes: ' . PHP_EOL . $this->wrapFilesInCodeBlocks($pr->diffFiles),
             AgentMessageRole::USER,
