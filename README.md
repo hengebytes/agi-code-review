@@ -13,7 +13,7 @@
 - [ ] Build UI for projects, tasks, and agents management
 - [ ] OS notification agent
 - [ ] Propose pull request changes (from AI-created new branch into PR branch)
-- [ ] A whoel codebase RAG with Jira context based on commit messages
+- [ ] A whole codebase RAG with Jira context based on commit messages
 - [ ] Create task from Jira issue, and let AI open pull request with task completed
 
 #### Actions executed automatically
