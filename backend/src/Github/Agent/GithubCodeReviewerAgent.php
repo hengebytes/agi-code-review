@@ -41,8 +41,7 @@ class GithubCodeReviewerAgent extends AbstractAgent
             If git diff is not enough, use the 'getFileContent' function to get the file content.
             Start by commenting on specific changes via 'addReviewCommentToCodeBlock' function.
             After specific feedback provided, write a brief summary of identified problems.
-            Do not explain the code changes, just point out the problems.
-            If everything is fine, just respond "BOT VALIDATION PASSED" without any additional details.
+            Do not repeat feedback or summary that was already provided by tools and previous reviews.
             EOT;
         }
 

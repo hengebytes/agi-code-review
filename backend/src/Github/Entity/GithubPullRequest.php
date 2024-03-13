@@ -61,6 +61,12 @@ class GithubPullRequest
     #[ORM\Column(type: Types::JSON, nullable: false)]
     public array $diffFiles = [];
 
+    /**
+     * @var null|array = (['body' => string, 'comments' => (['body' => string, 'path' => string, 'line' => int, 'startLine' => int])[]])[]
+     */
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    public ?array $reviews = null;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();

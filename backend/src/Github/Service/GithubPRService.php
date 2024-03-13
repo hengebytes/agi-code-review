@@ -65,6 +65,7 @@ readonly class GithubPRService
         $pr->updatedAt = new \DateTimeImmutable($prDetails->updatedAt);
         $pr->commitNames = $prDetails->commits;
         $pr->diffFiles = $prDetails->files;
+        $pr->reviews = $prDetails->reviews;
 
         $this->entityManager->persist($pr);
         $this->entityManager->flush();
@@ -111,6 +112,7 @@ readonly class GithubPRService
         $pr->updatedAt = new \DateTimeImmutable($prDetails->updatedAt);
         $pr->diffFiles = $prDetails->files;
         $pr->commitNames = $prDetails->commits;
+        $pr->reviews = $prDetails->reviews;
 
         $this->entityManager->persist($pr);
 
@@ -283,14 +285,25 @@ readonly class GithubPRService
         $client = $this->getGithubClient($connection);
         $gqlClient = $client->graphql();
         $query = <<<GQL
-            query { repository(owner: "{$owner}", name: "{$repo}") {
-                pullRequest(number: {$githubPRId}) {
-                  id title body state author { login }
-                  headRefName baseRefName changedFiles
-                  createdAt updatedAt
-                  commits(last: 100) { nodes { commit { message } } }
-                }
-            }}
+        query { repository(owner: "{$owner}", name: "{$repo}") {
+            pullRequest(number: {$githubPRId}) {
+              id title body state author { login }
+              headRefName baseRefName changedFiles
+              createdAt updatedAt
+              commits(last: 100) { nodes { commit { message } } }
+              reviews(first: 100) { nodes {
+                  body
+                  comments(first: 50) {
+                    nodes {
+                      body
+                      path
+                      line
+                      startLine
+                    }
+                  }}
+              }
+            }
+        }}
         GQL;
 
         $response = $gqlClient->execute($query);

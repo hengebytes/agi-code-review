@@ -16,6 +16,7 @@ readonly class GithubPRResponseDTO
         public string $updatedAt,
         public array $commits,
         public ?array $files,
+        public ?array $reviews,
     ) {
     }
 
@@ -33,6 +34,15 @@ readonly class GithubPRResponseDTO
             $data['updatedAt'],
             array_unique(array_map(static fn($commit) => $commit['commit']['message'], $data['commits']['nodes'])),
             $data['files'] ?? null,
+            array_map(static fn($review) => [
+                'body' => $review['body'],
+                'comments' => array_map(static fn($comment) => [
+                    'body' => $comment['body'],
+                    'path' => $comment['path'],
+                    'line' => $comment['line'],
+                    'startLine' => $comment['startLine'],
+                ], $review['comments']['nodes'] ?? []),
+            ], $data['reviews']['nodes'] ?? []),
         );
     }
 }
