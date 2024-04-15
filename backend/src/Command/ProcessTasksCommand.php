@@ -32,7 +32,13 @@ class ProcessTasksCommand extends Command
 
         foreach ($tasks as $task) {
             $output->writeln($task->project->name . ': processing ' . $task->name . ' ' . $task->id);
-            $this->taskProcessorService->processTask($task);
+
+            // refetch task to make sure it's still in the same status, and not processed by another process
+            $refetchedTask = $taskRepo->find($task->id);
+            if (!$refetchedTask || $refetchedTask->status !== TaskStatus::READY_TO_PROCESS) {
+                continue;
+            }
+            $this->taskProcessorService->processTask($refetchedTask);
         }
 
         return Command::SUCCESS;

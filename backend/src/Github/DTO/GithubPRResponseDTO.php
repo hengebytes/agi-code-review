@@ -22,6 +22,15 @@ readonly class GithubPRResponseDTO
 
     public static function fromGQLResponse(array $data): self
     {
+        $minDate = '1970-01-01T00:00:00Z';
+        $lastCommitDate = new \DateTime($minDate);
+        foreach ($data['commits']['nodes'] ?? [] as $commitNode) {
+            $commitDate = new \DateTime($commitNode['commit']['committedDate'] ?? $minDate);
+            if ($commitDate > $lastCommitDate) {
+                $lastCommitDate = $commitDate;
+            }
+        }
+
         return new self(
             $data['id'],
             $data['title'],
@@ -31,7 +40,7 @@ readonly class GithubPRResponseDTO
             $data['headRefName'],
             $data['baseRefName'],
             $data['createdAt'],
-            $data['updatedAt'],
+            $lastCommitDate->format('c'),
             array_unique(array_map(static fn($commit) => $commit['commit']['message'], $data['commits']['nodes'])),
             $data['files'] ?? null,
             array_map(static fn($review) => [

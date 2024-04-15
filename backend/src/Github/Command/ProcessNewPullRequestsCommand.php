@@ -55,26 +55,35 @@ class ProcessNewPullRequestsCommand extends Command
             return;
         }
 
-        $PRs = $this->githubPRService->getProjectPullRequestIds($project);
+        $PRs = $this->githubPRService->getProjectPullRequestsSummary($project);
         /** @var GithubPullRequest[] $existingPRs */
         $existingPRs = $this->entityManager->getRepository(GithubPullRequest::class)->findBy([
-            'githubId' => $PRs,
+            'githubId' => array_column($PRs, 'number'),
         ]);
-        foreach ($PRs as $PRId) {
+        foreach ($PRs as $PRSummary) {
             foreach ($existingPRs as $existingPR) {
-                if ((int)$existingPR->githubId === $PRId && $existingPR->task->project->id === $project->id) {
-                    $io->info('PR exists: ' . $PRId);
+                if ((int)$existingPR->githubId === $PRSummary['number'] && $existingPR->task->project->id === $project->id) {
+                    $io->info('PR exists: ' . $PRSummary['number']);
+
+                    if ($existingPR->updatedAt->getTimestamp() < $PRSummary['updatedAt']->getTimestamp()) {
+                        $io->info('Updating PR: ' . $PRSummary['number']);
+                        if (!$existingPR->task) {
+                            $io->error('Task not created for PR: ' . $PRSummary['number']);
+                            continue 2;
+                        }
+                        $this->githubPRService->refreshTaskPR($existingPR->task);
+                    }
                     continue 2;
                 }
             }
-            $io->info('Creating task for PR: ' . $PRId);
+            $io->info('Creating task for PR: ' . $PRSummary['number']);
 
             try {
-                $task = $this->githubPRService->createConnectionPRTask($connection, $PRId);
+                $task = $this->githubPRService->createConnectionPRTask($connection, $PRSummary['number']);
                 if ($task) {
-                    $io->info('Task created for PR: ' . $PRId);
+                    $io->info('Task created for PR: ' . $PRSummary['number']);
                 } else {
-                    $io->warning('Task not created for PR: ' . $PRId);
+                    $io->warning('Task not created for PR: ' . $PRSummary['number']);
                 }
             } catch (\Exception $e) {
                 $io->error($e->getMessage());

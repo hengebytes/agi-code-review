@@ -1,5 +1,3 @@
-version: '3.8'
-
 name: agicr
 
 networks:
@@ -17,7 +15,7 @@ x-global: &common
 services:
     localai:
         <<: *common
-        image: "localai/localai:v2.8.2-cublas-cuda12-ffmpeg"
+        image: "localai/localai:v2.10.1-cublas-cuda12-ffmpeg"
         env_file:
             - .env.localai
         volumes:

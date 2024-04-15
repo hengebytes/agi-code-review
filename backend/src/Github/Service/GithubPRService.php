@@ -144,9 +144,9 @@ readonly class GithubPRService
     }
 
     /**
-     * @return int[]
+     * @return array<int, array{number: int, updatedAt: \DateTimeImmutable}>
      */
-    public function getProjectPullRequestIds(
+    public function getProjectPullRequestsSummary(
         Project $project,
         string $state = 'OPEN',
         int $limit = 100
@@ -166,7 +166,7 @@ readonly class GithubPRService
         $query = <<<GQL
         query { repository(owner: "{$owner}", name: "{$repo}") {
             pullRequests(first: {$limit}, states: {$state}) {
-              nodes { number }
+              nodes { number commits(last: 1) { nodes { commit { committedDate } } } }
             }
         }}
         GQL;
@@ -175,10 +175,18 @@ readonly class GithubPRService
             return [];
         }
 
-        return array_map(
-            'intval',
-            array_column($response['data']['repository']['pullRequests']['nodes'], 'number')
-        );
+        $PRs = [];
+        foreach ($response['data']['repository']['pullRequests']['nodes'] as $pr) {
+            $PRs[] = [
+                'number' => (int)$pr['number'],
+                'updatedAt' => new \DateTimeImmutable(
+                    $pr['commits']['nodes'][0]['commit']['committedDate']
+                        ?? null
+                ),
+            ];
+        }
+
+        return $PRs;
     }
 
     public function submitPRReview(
@@ -289,8 +297,8 @@ readonly class GithubPRService
             pullRequest(number: {$githubPRId}) {
               id title body state author { login }
               headRefName baseRefName changedFiles
-              createdAt updatedAt
-              commits(last: 100) { nodes { commit { message } } }
+              createdAt
+              commits(last: 100) { nodes { commit { message committedDate } } }
               reviews(first: 100) { nodes {
                   body
                   comments(first: 50) {

@@ -8,7 +8,7 @@
 - [x] Slack notification integration
 - [x] GitHub probot integration for live updates
 - [x] LLM api calls cache
-- [ ] Process GitHub updates without probot (by cronjob)
+- [x] Process GitHub updates without probot (by cronjob)
 - [ ] GitLab ongoing feedback processing (take in account previously provided feedback after new commits)
 - [ ] Build UI for projects, tasks, and agents management
 - [ ] OS notification agent
