@@ -35,8 +35,8 @@ class TransformContextAgent extends AbstractAgent
 
         $completionBaseMessages = [new AgentMessage($systemPrompt, AgentMessageRole::SYSTEM)];
         if ($sampleInput && $sampleOutput) {
-            $completionBaseMessages[] = new AgentMessage($sampleInput, AgentMessageRole::USER);
-            $completionBaseMessages[] = new AgentMessage($sampleOutput, AgentMessageRole::SYSTEM);
+            //$completionBaseMessages[] = new AgentMessage($sampleInput, AgentMessageRole::USER);
+            //$completionBaseMessages[] = new AgentMessage($sampleOutput, AgentMessageRole::ASSISTANT);
         }
 
         foreach ($messages as $message) {

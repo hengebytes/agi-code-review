@@ -53,7 +53,7 @@ class GitlabCodeReviewerAgent extends AbstractAgent
         ];
         if ($sampleInput && $sampleOutput) {
             $completionBaseMessages[] = new AgentMessage($sampleInput, AgentMessageRole::USER);
-            $completionBaseMessages[] = new AgentMessage($sampleOutput, AgentMessageRole::SYSTEM);
+            $completionBaseMessages[] = new AgentMessage($sampleOutput, AgentMessageRole::ASSISTANT);
         }
 
         $reqMessages = [...$completionBaseMessages, ...$messages];
@@ -148,7 +148,10 @@ class GitlabCodeReviewerAgent extends AbstractAgent
     {
         $tools = [];
         foreach ($messages as $message) {
-            if ($message->role !== AgentMessageRole::SYSTEM) {
+            if (
+                $message->role !== AgentMessageRole::SYSTEM
+                && $message->role !== AgentMessageRole::ASSISTANT
+            ) {
                 continue;
             }
             if (str_contains($message->content, 'getFileContent')) {

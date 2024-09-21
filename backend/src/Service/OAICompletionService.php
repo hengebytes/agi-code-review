@@ -6,6 +6,7 @@ use App\DTO\AgentMessage;
 use App\DTO\LLMAccessCredential;
 use App\Enum\AgentMessageRole;
 use OpenAI\Responses\Chat\CreateResponse;
+use OpenAI\Responses\Chat\CreateResponseMessage;
 use Yethee\Tiktoken\EncoderProvider;
 
 /**
@@ -32,9 +33,16 @@ readonly class OAICompletionService
 
         $requestMessages = [];
         foreach ($messages as $message) {
+            if ($message instanceof CreateResponseMessage) {
+                $msg = $message->toArray();
+                $msg['content'] = $msg['content'] ?: '';
+                $requestMessages[] = $msg;
+                continue;
+            }
+
             $msg = [
-                'role' => $message->role === AgentMessageRole::USER ? 'user' : 'system',
-                'content' => $message->content,
+                'role' => strtolower($message->role->value),
+                'content' => $message->content ?: '-',
             ];
             if ($message->toolCallId) {
                 $msg['tool_call_id'] = $message->toolCallId;

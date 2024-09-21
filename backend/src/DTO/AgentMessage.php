@@ -11,6 +11,7 @@ class AgentMessage
         public AgentMessageRole $role = AgentMessageRole::USER,
         public ?array $metadata = null,
         public ?string $toolCallId = null,
+        public ?array $toolCalls = null,
     ) {
     }
 }

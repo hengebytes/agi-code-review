@@ -15,18 +15,45 @@ x-global: &common
 services:
     localai:
         <<: *common
-        image: "localai/localai:v2.10.1-cublas-cuda12-ffmpeg"
-        env_file:
-            - .env.localai
+        build:
+            context: ./images/llm
+            dockerfile: ./Dockerfile
+        environment:
+            CUDA_VISIBLE_DEVICES: 0,1
         volumes:
             - ./local-models:/models:cached
-            - ./data/images/:/tmp/generated/images/
-            - ./data/huggingface/:/usr/local/huggingface/
-        command: [ "gpt-4" ]
+        # see https://github.com/ggerganov/llama.cpp/tree/master/examples/server
+        command: [
+#            "--api-key", "sk-local",
+            "--chat-template", "llama3",
+            "-m", "/models/Meta-Llama-3.1-70B-Instruct-Q4_K_L.gguf",
+            "--alias", "localai",
+            "--port", "80",
+            "--host", "0.0.0.0",
+            "--n-gpu-layers", "100",
+          #            "--cache-type-k", "q8_0",
+          #            "--cache-type-v", "q8_0", # requires flash_attn
+            "--mlock",
+          # 8B model
+          #            "--no-slots", # slots state may contain user data, prompts included.
+          #            "--log-disable",
+          #            "--n-predict", "1024", #maximum tokens to predict
+          #            "--ctx-size", "32768", # KV cache size, T tokens (prompt + generated), set to T*Parallel in order to handle the worst-case
+          #            "--parallel", "10", # we have 8*4096=32768 tokens, but assume no max tokens in parallel, so give 2 more
+          # 70B model
+            "--n-predict", "1024", #maximum tokens to predict
+            "--ctx-size", "2500", # KV cache size, T tokens (prompt + generated), set to T*Parallel in order to handle the worst-case
+            "--tensor-split", "0.46,0.54",
+            "--parallel", "1", # we have 8*4096=32768 tokens, but assume no max tokens in parallel, so give 2 more
+        ]
         ports:
             - 9088:80
+        cap_add:
+            - SYS_RESOURCE
         ulimits:
+            stack: 67108864
             memlock: -1
+        ipc: host
         deploy:
             resources:
                 reservations:

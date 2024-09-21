@@ -58,7 +58,7 @@ class GithubContextAgent extends AbstractAgent
             if (trim($previousReviewsText)) {
                 $messages[] = new AgentMessage(
                     'Previously provided reviews: ' . PHP_EOL . trim($previousReviewsText),
-                    AgentMessageRole::USER,
+                    AgentMessageRole::ASSISTANT,
                 );
             }
         }

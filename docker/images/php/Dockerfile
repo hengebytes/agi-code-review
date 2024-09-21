@@ -1,4 +1,4 @@
-FROM ghcr.io/roadrunner-server/roadrunner:2023.3 AS roadrunner
+FROM ghcr.io/roadrunner-server/roadrunner:2024.2 AS roadrunner
 
 FROM php:8.3-alpine as builder
 
@@ -21,7 +21,7 @@ RUN apk add --no-cache --virtual .phpize-deps $PHPIZE_DEPS \
     && chmod +x /usr/local/bin/pickle \
     && pickle install -n igbinary && docker-php-ext-enable igbinary \
     && echo "--enable-redis-igbinary" > redis-options.txt \
-    && pickle install --with-configure-options redis-options.txt redis && docker-php-ext-enable redis \
+    && pickle install --with-configure-options redis-options.txt redis@6.0.2 && docker-php-ext-enable redis \
     && pickle install -n imagick && docker-php-ext-enable imagick \
     && rm -rf redis-options.txt \
     && rm -rf /usr/local/bin/pickle \
@@ -82,7 +82,7 @@ RUN apk add --no-cache --virtual .phpize-deps $PHPIZE_DEPS \
     && chmod +x /usr/local/bin/pickle \
     && pickle install -n igbinary && docker-php-ext-enable igbinary \
     && echo "--enable-redis-igbinary" > redis-options.txt \
-    && pickle install --with-configure-options redis-options.txt redis && docker-php-ext-enable redis \
+    && pickle install --with-configure-options redis-options.txt redis@6.0.2 && docker-php-ext-enable redis \
     && pickle install -n imagick && docker-php-ext-enable imagick \
     && rm -rf redis-options.txt \
     && rm -rf /usr/local/bin/pickle \

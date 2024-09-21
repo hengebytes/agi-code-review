@@ -54,7 +54,7 @@ class GithubCodeReviewerAgent extends AbstractAgent
         ];
         if ($sampleInput && $sampleOutput) {
             $completionBaseMessages[] = new AgentMessage($sampleInput, AgentMessageRole::USER);
-            $completionBaseMessages[] = new AgentMessage($sampleOutput, AgentMessageRole::SYSTEM);
+            $completionBaseMessages[] = new AgentMessage($sampleOutput, AgentMessageRole::ASSISTANT);
         }
 
         $reqMessages = [...$completionBaseMessages, ...$messages];
@@ -82,6 +82,8 @@ class GithubCodeReviewerAgent extends AbstractAgent
             }
             $toolsCalled = true;
             sleep(1); // avoid rate limit issues with OpenAI and GitHub
+
+            $reqMessages[] = $completion->choices[0]->message;
 
             foreach ($completion->choices[0]->message->toolCalls as $toolCall) {
                 try {
@@ -158,7 +160,10 @@ class GithubCodeReviewerAgent extends AbstractAgent
     {
         $tools = [];
         foreach ($messages as $message) {
-            if ($message->role !== AgentMessageRole::SYSTEM) {
+            if (
+                $message->role !== AgentMessageRole::SYSTEM
+                && $message->role !== AgentMessageRole::ASSISTANT
+            ) {
                 continue;
             }
             if (str_contains($message->content, 'addReviewCommentToCodeBlock')) {
