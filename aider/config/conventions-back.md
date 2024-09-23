@@ -1,0 +1,2 @@
+- Use php version 8.3 with symfony 7
+- Prefer php attributes over annotations

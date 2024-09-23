@@ -1,0 +1,3 @@
+- Prefer tailwind CSS styling
+- Use typescript everywhere possible, with ES2023 syntax
+- Follow React conventions outlined on react.dev/learn portal (including Learn React > Escape Hatches)

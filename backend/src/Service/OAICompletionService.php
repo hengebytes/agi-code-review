@@ -68,6 +68,7 @@ readonly class OAICompletionService
 
         $response = $client->chat()->create($chatRequestParams);
         $response = $this->parseMultiToolResponse($response);
+        $response = $this->parseMultiToolResponseHermes($response);
 
         try {
             $this->cacheService->saveOAIResponse($messages, $response, $variationKey);
@@ -152,6 +153,70 @@ readonly class OAICompletionService
             ];
         }
         $responseData['choices'][0]['message']['content'] = '';
+        $responseData['choices'][0]['message']['tool_calls'] = $toolCalls;
+        $responseData['choices'][0]['finish_reason'] = 'tool_calls';
+
+        return CreateResponse::from($responseData, $response->meta());
+    }
+
+    private function parseMultiToolResponseHermes(CreateResponse $response)
+    {
+        $toolStart = "<tool_call>";
+        if (
+            empty($response->choices[0]->message->content)
+            || !str_starts_with($response->choices[0]->message->content, $toolStart)
+        ) {
+            return $response;
+        }
+        $toolEnd = "</tool_call>";
+
+        $responseData = $response->toArray();
+        $stringResponse = trim($responseData['choices'][0]['message']['content']);
+
+        $toolCalls = []; // {"name": "addReviewCommentToCodeBlock"
+        // use regex to extract tool calls
+        $pattern = "/$toolStart(.*?)$toolEnd/s";
+        preg_match_all($pattern, $stringResponse, $matches);
+        foreach ($matches[1] as $match) {
+            try {
+                $toolCall = json_decode($match, true, 512, JSON_THROW_ON_ERROR);
+                $toolCalls[] = [
+                    'id' => $toolCall['name'],
+                    'type' => 'function',
+                    'function' => [
+                        'name' => $toolCall['name'],
+                        'arguments' => $toolCall['arguments'],
+                    ],
+                ];
+            } catch (\JsonException) {
+                continue;
+            }
+        }
+
+        // remove tool calls from response using regex
+        $responseData['choices'][0]['message']['content'] = preg_replace($pattern, '', $stringResponse);
+
+        // find tool calls in outside of tags, starting with {"name": "addReviewCommentToCodeBlock"
+        $pattern = "/\{.*?\"name\":\s*\"addReviewCommentToCodeBlock\".*?\}/s";
+        preg_match_all($pattern, $stringResponse, $matches);
+        foreach ($matches[0] as $match) {
+            try {
+                $toolCall = json_decode($match, true, 512, JSON_THROW_ON_ERROR);
+                $toolCalls[] = [
+                    'id' => $toolCall['name'],
+                    'type' => 'function',
+                    'function' => [
+                        'name' => $toolCall['name'],
+                        'arguments' => $toolCall['arguments'],
+                    ],
+                ];
+            } catch (\JsonException) {
+                continue;
+            }
+        }
+        // remove tool calls from response using regex
+        $responseData['choices'][0]['message']['content'] = preg_replace($pattern, '', $responseData['choices'][0]['message']['content']);
+
         $responseData['choices'][0]['message']['tool_calls'] = $toolCalls;
         $responseData['choices'][0]['finish_reason'] = 'tool_calls';
 
