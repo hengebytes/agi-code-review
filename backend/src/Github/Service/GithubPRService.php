@@ -232,7 +232,9 @@ readonly class GithubPRService
             }, $fileComments);
         }
 
-        $reviews = $client->pullRequest()->reviews();
+        $pullRequest = $client->pullRequest();
+        $reviewerUserLogin = $pullRequest->reviewRequests()->all($pr->repoOwner, $pr->repoName, $pr->githubId)['users'][0]['login'] ?? null;
+        $reviews = $pullRequest->reviews();
         try {
             $reviews->create($pr->repoOwner, $pr->repoName, $pr->githubId, $params);
         } catch (\Exception $e) {
@@ -249,12 +251,19 @@ readonly class GithubPRService
                 }
 
                 $reviews->create($pr->repoOwner, $pr->repoName, $pr->githubId, [
-                    'body' => $reviewCommentPrefix . $comment,
+                    'body' => $reviewCommentPrefix . PHP_EOL . $comment,
                     'event' => 'COMMENT',
                 ]);
             } else {
                 throw $e;
             }
+        }
+
+        if ($reviewerUserLogin) {
+            $pullRequest->reviewRequests()->create(
+                $pr->repoOwner, $pr->repoName, $pr->githubId,
+                [$reviewerUserLogin]
+            );
         }
     }
 

@@ -13,7 +13,7 @@ x-global: &common
         - agi-cr-net
 
 services:
-#    localai:
+#    ollama:
 #        <<: *common
 #        image: "ollama/ollama"
 #        ports:
@@ -28,7 +28,7 @@ services:
 #            CUDA_VISIBLE_DEVICES: 0,1
 #            OLLAMA_KEEP_ALIVE: "48h"
 #            HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
-#            OLLAMA_MODEL: "deepseek-coder-v2:16b"
+#            OLLAMA_MODEL: "qwen2.5:32b"
 #        deploy:
 #            resources:
 #                reservations:
@@ -39,6 +39,7 @@ services:
 #        volumes:
 #            - ./local-models/huggingface:/root/.cache/huggingface
 #            - ./data/ollama:/root/.ollama
+#        # run manually after start  `docker-compose exec ollama bash -c 'ollama pull qwen2.5:32b && ollama run qwen2.5:32b'`
 
     localai:
         <<: *common
@@ -50,20 +51,22 @@ services:
         volumes:
             - ./local-models/huggingface:/root/.cache/huggingface
         command: [
-            "--model", "Qwen/Qwen2.5-72B-Instruct-GPTQ-Int4",
+#            "--model", "Qwen/Qwen2.5-72B-Instruct-GPTQ-Int4",
+            "--model", "Qwen/Qwen2.5-32B-Instruct-GPTQ-Int4",
             "--port", "80",
             "--host", "0.0.0.0",
             "--tensor-parallel-size", '2',
-            "--max-model-len", '3000',
-            "--gpu-memory-utilization", '0.9',
+            "--max-model-len", '12000', # 8192
+            "--gpu-memory-utilization", '1',
             "--served-model-name", "localai",
             "--enable-auto-tool-choice",
             "--tool-call-parser", "hermes",
+            "--gpu-memory-utilization", '0.7',
+#            "--enforce-eager",
 #            '--use-v2-block-manager',
 #            "--chat-template", "tool_use",
 #            "--trust-remote-code",
-            "--disable-fastapi-docs",
-#            "--pipeline-parallel-size", '1'
+            "--pipeline-parallel-size", '1'
         ]
         ports:
             - 9088:80

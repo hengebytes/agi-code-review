@@ -4,9 +4,10 @@ namespace App\Service;
 
 use App\DTO\AgentMessage;
 use App\DTO\LLMAccessCredential;
-use App\Enum\AgentMessageRole;
 use OpenAI\Responses\Chat\CreateResponse;
 use OpenAI\Responses\Chat\CreateResponseMessage;
+use OpenAI\Responses\Meta\MetaInformation;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Yethee\Tiktoken\EncoderProvider;
 
 /**
@@ -17,6 +18,7 @@ readonly class OAICompletionService
     public function __construct(
         private LLMCacheService $cacheService,
         private EncoderProvider $encoderProvider,
+        private HttpClientInterface $httpClient,
     ) {
     }
 
@@ -25,6 +27,25 @@ readonly class OAICompletionService
      */
     public function getCompletion(LLMAccessCredential $llmAccess, array $messages, array $tools = []): CreateResponse
     {
+        $variationKey = $tools ? 'tools' : '';
+
+        $isClaude = str_starts_with($llmAccess->model, 'claude-');
+        if ($isClaude) {
+            $cachedResponse = $this->cacheService->getOAIResponse($messages, $tools ? 'tools' : '');
+            if ($cachedResponse) {
+                return $cachedResponse;
+            }
+
+            $response = $this->getCompletionFromClaude($llmAccess, $messages, $tools);
+
+            try {
+                $this->cacheService->saveOAIResponse($messages, $response, $variationKey . '+claude');
+            } catch (\Exception) {
+            }
+
+            return $response;
+        }
+
         $client = \OpenAI::factory()->withApiKey($llmAccess->token);
         if ($llmAccess->apiUrl) {
             $client = $client->withBaseUri($llmAccess->apiUrl);
@@ -50,7 +71,6 @@ readonly class OAICompletionService
             $requestMessages[] = $msg;
         }
 
-        $variationKey = $tools ? 'tools' : '';
         $cachedResponse = $this->cacheService->getOAIResponse($messages, $variationKey);
         if ($cachedResponse) {
             return $cachedResponse;
@@ -221,5 +241,157 @@ readonly class OAICompletionService
         $responseData['choices'][0]['finish_reason'] = 'tool_calls';
 
         return CreateResponse::from($responseData, $response->meta());
+    }
+
+    /**
+     * @param AgentMessage[] $messages
+     */
+    private function getCompletionFromClaude(LLMAccessCredential $llmAccess, array $messages, array $tools): CreateResponse
+    {
+        // Extract system message
+        $systemMessage = '';
+        $requestMessages = [];
+        foreach ($messages as $key => $message) {
+            if ($message instanceof CreateResponseMessage && $message->toolCalls) {
+                $content = [];
+                foreach ($message->toolCalls as $toolCall) {
+                    $content[] = [
+                        'type' => 'tool_use',
+                        'id' => $toolCall->id,
+                        'name' => $toolCall->function->name,
+                        'input' => json_decode($toolCall->function->arguments, true),
+                    ];
+                }
+                $requestMessages[] = [
+                    'role' => 'assistant',
+                    'content' => $content,
+                ];
+                continue;
+            }
+
+
+            if ($message->role->value === 'system') {
+                $systemMessage = $message->content;
+                continue;  // Skip adding system message to requestMessages
+            }
+
+            if ($message->toolCallId) {
+                // This is a tool response message
+                $requestMessages[] = [
+                    'role' => 'user',
+                    'content' => [
+                        'type' => 'tool_result',
+                        'tool_use_id' => $message->toolCallId,
+                        'content' => $message->content ?: '',
+                    ],
+                ];
+                continue;
+            }
+
+            // Regular message handling
+            if ($message->role->value === 'assistant') {
+                $role = 'assistant';
+            } else {
+                $role = 'user';  // Claude only accepts 'user' and 'assistant' roles
+            }
+            $requestMessages[] = [
+                'role' => $role,
+                'content' => $message->content ?: '',
+            ];
+        }
+
+        // Convert OpenAI tools format to Claude tools format
+        $claudeTools = [];
+        foreach ($tools as $tool) {
+            $claudeTool = [
+                'name' => $tool['function']['name'],
+                'description' => $tool['function']['description'],
+                'input_schema' => $tool['function']['parameters'],
+            ];
+            $claudeTools[] = $claudeTool;
+        }
+
+        try {
+            $response = $this->httpClient->request('POST', $llmAccess->apiUrl ?: 'https://api.anthropic.com/v1/messages', [
+                'headers' => [
+                    'x-api-key' => $llmAccess->token,
+                    'anthropic-version' => '2023-06-01',
+                    'content-type' => 'application/json',
+                ],
+                'json' => [
+                    'model' => $llmAccess->model,
+                    'max_tokens' => 4000,
+                    'system' => $systemMessage,
+                    'messages' => $requestMessages,
+                    'tools' => $claudeTools,
+                ],
+            ]);
+            $responseData = $response->toArray();
+        } catch (\Exception $e) {
+            $errorResponse = $e->getResponse()->getContent(false);
+
+            throw new \Exception($errorResponse);
+        }
+
+        // Convert Claude response to OpenAI format
+        $openAIResponse = [
+            'id' => $responseData['id'],
+            'object' => 'chat.completion',
+            'created' => time(),
+            'model' => $llmAccess->model,
+            'choices' => [
+                [
+                    'index' => 0,
+                    'message' => [
+                        'role' => 'assistant',
+                        'content' => '',
+                    ],
+                    'finish_reason' => 'stop',
+                ],
+            ],
+            'usage' => [
+                'prompt_tokens' => $responseData['usage']['input_tokens'] ?? 0,
+                'completion_tokens' => $responseData['usage']['output_tokens'] ?? 0,
+                'total_tokens' => ($responseData['usage']['input_tokens'] ?? 0) + ($responseData['usage']['output_tokens'] ?? 0),
+            ],
+        ];
+
+        // Handle content blocks and tool calls
+        if (!empty($responseData['content'])) {
+            $textContent = '';
+            $toolCalls = [];
+
+            foreach ($responseData['content'] as $block) {
+                if ($block['type'] === 'text') {
+                    $textContent .= $block['text'];
+                } elseif ($block['type'] === 'tool_use') {
+                    $toolCalls[] = [
+                        'id' => $block['id'],
+                        'type' => 'function',
+                        'function' => [
+                            'name' => $block['name'],
+                            'arguments' => json_encode($block['input']),
+                        ],
+                    ];
+                }
+            }
+
+            if (!empty($toolCalls)) {
+                $openAIResponse['choices'][0]['message']['tool_calls'] = $toolCalls;
+                $openAIResponse['choices'][0]['finish_reason'] = 'tool_calls';
+            }
+            $openAIResponse['choices'][0]['message']['content'] = $textContent;
+        }
+
+        // Create meta information
+        $meta = MetaInformation::from([
+            'x-request-id' => [$responseData['id']],
+            'openai-model' => [$llmAccess->model],
+            'openai-organization' => ['anthropic'],
+            'openai-processing-ms' => ['0'],
+            'openai-version' => ['2023-06-01'],
+        ]);
+
+        return CreateResponse::from($openAIResponse, $meta);
     }
 }
